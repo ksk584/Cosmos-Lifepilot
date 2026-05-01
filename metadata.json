@@ -1,0 +1,6 @@
+{
+  "name": "LifePilot",
+  "description": "Predictive Context Engine with Digital Twin for decision intelligence in daily life.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["AI-powered Intent Detection", "Digital Twin Modeling", "Predictive Simulations"]
+}
