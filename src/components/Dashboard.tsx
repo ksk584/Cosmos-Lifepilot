@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, Zap, Clock, Check, X, Edit2 } from 'lucide-react';
+import { AlertTriangle, Zap, Clock, Check, X, Edit2, Plus } from 'lucide-react';
 import type { LifeEvent, DigitalTwin, PredictedIssue } from '../types';
 import { minutesToTime, calcDayScore } from '../engine';
 import { TYPE_COLORS } from '../constants';
@@ -22,6 +22,77 @@ interface Props {
   isLearning: boolean;
   onDelayEvent: (id: string) => void;
   onUpdateEvent: (id: string, changes: Partial<LifeEvent>) => void;
+  onAddEvent: (newEvent: Omit<LifeEvent, 'id' | 'status'>) => void;
+}
+
+// ─── Default Mappings for New Events ──────────────────────────────────────────
+
+const TYPE_DEFAULTS = {
+  study: { icon: '📚', priority: 60, energyCost: 40 },
+  meeting: { icon: '👥', priority: 80, energyCost: 50 },
+  travel: { icon: '🚗', priority: 70, energyCost: 20 },
+  personal: { icon: '☕', priority: 30, energyCost: -20 },
+  exam: { icon: '📝', priority: 100, energyCost: 90 },
+  class: { icon: '🎓', priority: 70, energyCost: 50 },
+  health: { icon: '💪', priority: 60, energyCost: 60 },
+  sleep: { icon: '🌙', priority: 90, energyCost: -100 }
+};
+
+function AddEventModal({ onAdd, onClose }: { onAdd: (e: Omit<LifeEvent, 'id' | 'status'>) => void; onClose: () => void }) {
+  const [label, setLabel] = useState('New Event');
+  const [time, setTime] = useState('12:00');
+  const [duration, setDuration] = useState(60);
+  const [type, setType] = useState<LifeEvent['type']>('personal');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const [h, m] = time.split(':').map(Number);
+    const startTime = h * 60 + m;
+    onAdd({
+      label,
+      startTime,
+      duration,
+      type,
+      ...TYPE_DEFAULTS[type]
+    });
+    onClose();
+  };
+
+  return (
+    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] bg-black/70 backdrop-blur-md flex items-center justify-center p-6">
+      <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} className="w-full max-w-sm glass-panel p-6 rounded-3xl" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+        <div className="flex justify-between items-center mb-6">
+          <h3 className="font-black text-white text-lg">Add Custom Event</h3>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-white"><X size={20}/></button>
+        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Label</label>
+            <input type="text" value={label} onChange={e => setLabel(e.target.value)} required className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Time</label>
+              <input type="time" value={time} onChange={e => setTime(e.target.value)} required className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none" style={{ colorScheme: 'dark' }} />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Duration (m)</label>
+              <input type="number" value={duration} min={5} step={5} onChange={e => setDuration(parseInt(e.target.value))} required className="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none" />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-1">Category</label>
+            <select value={type} onChange={e => setType(e.target.value as any)} className="w-full bg-[#1a1b23] border border-white/10 rounded-xl p-3 text-sm text-white focus:border-blue-500 outline-none">
+              {Object.keys(TYPE_DEFAULTS).map(t => (
+                <option key={t} value={t}>{TYPE_DEFAULTS[t as keyof typeof TYPE_DEFAULTS].icon} {t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              ))}
+            </select>
+          </div>
+          <button type="submit" className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-black mt-2 transition-colors">Add to Timeline</button>
+        </form>
+      </motion.div>
+    </motion.div>
+  );
 }
 
 // ─── Helper: detect conflicts (events that overlap with at least one other) ───
@@ -157,8 +228,10 @@ export default function Dashboard({
   isLearning,
   onDelayEvent,
   onUpdateEvent,
+  onAddEvent,
 }: Props) {
   const [editState, setEditState] = useState<EditState | null>(null);
+  const [showAddModal, setShowAddModal] = useState(false);
 
   // Refs for auto-scroll
   const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -287,7 +360,9 @@ export default function Dashboard({
       <div className="space-y-1.5">
         <div className="flex items-center justify-between px-1 mb-2">
           <p className="text-[10px] font-mono text-slate-500 uppercase tracking-[0.2em]">Neural Timeline</p>
-          <p className="text-[9px] font-mono text-slate-600">Click label or time to edit</p>
+          <button onClick={() => setShowAddModal(true)} className="flex items-center gap-1 text-[9px] font-bold text-blue-400 bg-blue-500/10 px-2 py-1 rounded-md border border-blue-500/20 hover:bg-blue-500/20 transition-colors uppercase tracking-wide">
+            <Plus size={10} /> Add Event
+          </button>
         </div>
 
         {/* Scrollable container with auto-scroll */}
@@ -512,6 +587,9 @@ export default function Dashboard({
           })}
         </div>
       </div>
+      <AnimatePresence>
+        {showAddModal && <AddEventModal onAdd={onAddEvent} onClose={() => setShowAddModal(false)} />}
+      </AnimatePresence>
     </div>
   );
 }

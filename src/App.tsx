@@ -260,6 +260,14 @@ export default function App() {
     });
   }, [currentTimeMins, twin]);
 
+  const handleAddEvent = useCallback((newEvent: Omit<LifeEvent, 'id' | 'status'>) => {
+    setEvents(prev => {
+      const added: LifeEvent = { ...newEvent, id: Date.now().toString(), status: 'smooth' };
+      const updated = [...prev, added].sort((a, b) => a.startTime - b.startTime);
+      return recalculateSchedule(updated, currentTimeMins, twin);
+    });
+  }, [currentTimeMins, twin]);
+
   const handleCommitSimulation = useCallback((newEvents: LifeEvent[]) => {
     setEvents(newEvents);
     setActiveTab('dash');
@@ -382,6 +390,7 @@ export default function App() {
                 isLearning={isLearning}
                 onDelayEvent={handleDelayEvent}
                 onUpdateEvent={handleUpdateEvent}
+                onAddEvent={handleAddEvent}
               />
             )}
             {activeTab === 'context' && (
