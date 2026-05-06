@@ -180,7 +180,13 @@ export function generateResolutions(events: LifeEvent[], twin: DigitalTwin): Res
     });
   }
 
-  const low = events.find(e => twin.learningMetrics.priorityWeights[e.type] < 30 && e.id !== eventB.id && !e.isLocked);
+  const UN_SKIPPABLE = ['wake', 'sleep', 'lunch', 'dinner', 'breakfast', 'eat'];
+  const low = events.find(e => 
+    twin.learningMetrics.priorityWeights[e.type] < 30 && 
+    e.id !== eventB.id && 
+    !e.isLocked &&
+    !UN_SKIPPABLE.some(keyword => e.label.toLowerCase().includes(keyword))
+  );
   if (low) {
     resolutions.push({
       id: `skip-${low.id}`,
