@@ -16,6 +16,7 @@ import ContextPanel from './components/ContextPanel';
 import SimulationLab from './components/SimulationLab';
 import EnergyPanel from './components/EnergyPanel';
 import BrainPanel from './components/BrainPanel';
+import Onboarding from './components/Onboarding';
 
 // ─── Tabs ─────────────────────────────────────────────────────────────────────
 
@@ -76,7 +77,7 @@ function PreMortemModal({ issueCount, onDismiss }: { issueCount: number; onDismi
 export default function App() {
   // ── State ──
   const [twin, setTwin] = useState<DigitalTwin>(() => {
-    try { const s = localStorage.getItem('lifepilot_twin_v4'); return s ? JSON.parse(s) : DEFAULT_TWIN; }
+    try { const s = localStorage.getItem('lifepilot_twin_v5'); return s ? JSON.parse(s) : DEFAULT_TWIN; }
     catch { return DEFAULT_TWIN; }
   });
   const [events, setEvents] = useState<LifeEvent[]>(INITIAL_EVENTS);
@@ -128,7 +129,7 @@ export default function App() {
   const updateTwin = useCallback((updater: (prev: DigitalTwin) => DigitalTwin) => {
     setTwin(prev => {
       const next = updater(prev);
-      try { localStorage.setItem('lifepilot_twin_v4', JSON.stringify(next)); } catch {}
+      try { localStorage.setItem('lifepilot_twin_v5', JSON.stringify(next)); } catch {}
       return next;
     });
     triggerLearning();
@@ -144,6 +145,17 @@ export default function App() {
   useEffect(() => {
     setEvents(prev => recalculateSchedule(prev, currentTimeMins, twin));
   }, [currentTimeMins, twin]);
+
+  // ── Actions ──
+  const handleExecuteAction = useCallback((id: string) => {
+    setExecutedActions(prev => new Set([...prev, id]));
+
+    if (id === 'maps' && activeEvent?.type === 'travel') {
+      const origin = encodeURIComponent(activeEvent.origin || 'Current Location');
+      const destination = encodeURIComponent(activeEvent.destination || '');
+      window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`, '_blank');
+    }
+  }, [activeEvent]);
 
   // ── Autonomous Agent Loop (every 5s) ──
   useEffect(() => {
@@ -179,9 +191,27 @@ export default function App() {
           timestamp: Date.now(),
         }]);
       }
+
+      // Auto-Execute Passive Actions
+      passiveActions.forEach(action => {
+        if (!action.executed) {
+          handleExecuteAction(action.id);
+          setAlerts(prev => {
+            if (prev.some(a => a.id === `auto-${action.id}`)) return prev;
+            return [...prev, {
+              id: `auto-${action.id}`,
+              level: 'FYI',
+              message: `Auto-Executed: ${action.label}`,
+              detail: `Triggered by: ${action.trigger}`,
+              timestamp: Date.now(),
+              countdownSeconds: 8
+            }];
+          });
+        }
+      });
     }, 5000);
     return () => clearInterval(interval);
-  }, [predictedIssues, alerts, events, currentTimeMins]);
+  }, [predictedIssues, alerts, events, currentTimeMins, passiveActions, handleExecuteAction]);
 
   // ── Actions ──
   const handleApplyFix = useCallback((res: Resolution) => {
@@ -235,22 +265,16 @@ export default function App() {
     setActiveTab('dash');
   }, []);
 
-  const handleExecuteAction = useCallback((id: string) => {
-    setExecutedActions(prev => new Set([...prev, id]));
-
-    if (id === 'maps' && activeEvent?.type === 'travel') {
-      const origin = encodeURIComponent(activeEvent.origin || 'Current Location');
-      const destination = encodeURIComponent(activeEvent.destination || '');
-      window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`, '_blank');
-    }
-  }, [activeEvent]);
-
   const handleDismissAlert = useCallback((id: string) => {
     setAlerts(prev => prev.filter(a => a.id !== id));
   }, []);
 
   const modeMeta = MODE_META[mode];
   const score = calcDayScore(events);
+
+  if (!twin.onboarded) {
+    return <Onboarding initialTwin={twin} onComplete={(t) => updateTwin(() => t)} />;
+  }
 
   return (
     <div className="min-h-screen text-white font-sans overflow-x-hidden"

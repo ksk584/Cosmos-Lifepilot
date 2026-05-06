@@ -8,7 +8,7 @@ export const DEFAULT_TWIN: DigitalTwin = {
   commuteHabitDelay: 5,
   dailyEfficiencyScore: 85,
   stressThreshold: 70,
-  onboarded: true,
+  onboarded: false,
   learningMetrics: {
     preferredBuffer: 15,
     ignoreRate: 0.05,

@@ -246,6 +246,13 @@ export async function runSimulation(events: LifeEvent[], params: SimulationParam
             });
 
             const data = await response.json();
+            console.log('Google Maps API Response:', data);
+            
+            if (data.error) {
+              console.error('Google API Error:', data.error);
+              alert(`Google Maps API Error: ${data.error.message}`);
+            }
+            
             if (data.routes && data.routes[0] && data.routes[0].duration) {
               const seconds = parseInt(data.routes[0].duration.replace('s', ''));
               newDuration = Math.round(seconds / 60);
