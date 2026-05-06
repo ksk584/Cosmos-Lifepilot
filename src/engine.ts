@@ -210,15 +210,54 @@ export function recalculateSchedule(events: LifeEvent[], currentMins: number, tw
 
 // ─── 6. What-If Simulation ────────────────────────────────────────────────────
 
-export function runSimulation(events: LifeEvent[], params: SimulationParams, twin: DigitalTwin): SimulationResult {
-  let simEvents = events
+export async function runSimulation(events: LifeEvent[], params: SimulationParams, twin: DigitalTwin): Promise<SimulationResult> {
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+
+  let simEvents = await Promise.all(events
     .filter(ev => !params.skippedEventIds.includes(ev.id))
-    .map(ev => {
+    .map(async ev => {
       if (ev.type === 'travel') {
-        return { ...ev, duration: Math.round(ev.duration * params.routeMultiplier), isSimulated: true };
+        let newDuration = Math.round(ev.duration * params.routeMultiplier);
+
+        if (ev.origin && ev.destination && apiKey) {
+          try {
+            const departureTime = new Date();
+            departureTime.setHours(Math.floor((ev.startTime + params.leaveTimeOffset) / 60));
+            departureTime.setMinutes((ev.startTime + params.leaveTimeOffset) % 60);
+            departureTime.setSeconds(0);
+            
+            if (departureTime.getTime() < Date.now()) {
+                departureTime.setDate(departureTime.getDate() + 1);
+            }
+
+            const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-Goog-Api-Key': apiKey,
+                'X-Goog-FieldMask': 'routes.duration'
+              },
+              body: JSON.stringify({
+                origin: { address: ev.origin },
+                destination: { address: ev.destination },
+                routingPreference: 'TRAFFIC_AWARE',
+                departureTime: departureTime.toISOString()
+              })
+            });
+
+            const data = await response.json();
+            if (data.routes && data.routes[0] && data.routes[0].duration) {
+              const seconds = parseInt(data.routes[0].duration.replace('s', ''));
+              newDuration = Math.round(seconds / 60);
+            }
+          } catch (e) {
+            console.error('Failed to fetch route prediction:', e);
+          }
+        }
+        return { ...ev, duration: newDuration, isSimulated: true };
       }
       return { ...ev };
-    });
+    }));
 
   // Apply leave time offset to the first travel event
   const travelIdx = simEvents.findIndex(e => e.type === 'travel');

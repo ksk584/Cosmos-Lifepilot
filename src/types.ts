@@ -21,6 +21,8 @@ export interface LifeEvent {
   isLocked?: boolean;  // cannot be moved by cascade
   priority: number;    // 0–100
   energyCost: number;  // 0–100 (how draining it is)
+  origin?: string;
+  destination?: string;
 }
 
 // ─── Digital Twin ──────────────────────────────────────────────────────────────

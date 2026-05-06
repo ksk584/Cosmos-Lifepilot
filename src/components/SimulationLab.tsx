@@ -22,13 +22,14 @@ export default function SimulationLab({ events, twin, onCommit }: Props) {
   const [result, setResult] = useState<SimulationResult | null>(null);
   const [isRunning, setIsRunning] = useState(false);
 
-  const handleRun = useCallback(() => {
+  const handleRun = useCallback(async () => {
     setIsRunning(true);
-    setTimeout(() => {
-      const res = runSimulation(events, params, twin);
+    try {
+      const res = await runSimulation(events, params, twin);
       setResult(res);
+    } finally {
       setIsRunning(false);
-    }, 600);
+    }
   }, [events, params, twin]);
 
   const handleReset = () => {
@@ -91,24 +92,7 @@ export default function SimulationLab({ events, twin, onCommit }: Props) {
           </div>
         </div>
 
-        {/* Route multiplier */}
-        <div className="space-y-2">
-          <div className="flex justify-between items-center">
-            <span className="text-xs font-bold text-slate-300">Route Condition</span>
-            <span className={`text-sm font-black font-mono ${params.routeMultiplier > 1.2 ? 'text-red-400' : params.routeMultiplier > 1 ? 'text-amber-400' : 'text-emerald-400'}`}>
-              {params.routeMultiplier === 1 ? 'Clear' : params.routeMultiplier <= 1.2 ? 'Slow' : 'Heavy Traffic'}
-            </span>
-          </div>
-          <input
-            type="range" min={1.0} max={2.0} step={0.1}
-            value={params.routeMultiplier}
-            onChange={e => { setParams(p => ({ ...p, routeMultiplier: +e.target.value })); setResult(null); }}
-            className="w-full accent-amber-500 cursor-pointer"
-          />
-          <div className="flex justify-between text-[9px] font-mono text-slate-600">
-            <span>Clear road</span><span>Normal</span><span>2× traffic</span>
-          </div>
-        </div>
+
 
         {/* Skip events */}
         <div className="space-y-2">

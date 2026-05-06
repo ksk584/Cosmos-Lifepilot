@@ -237,7 +237,13 @@ export default function App() {
 
   const handleExecuteAction = useCallback((id: string) => {
     setExecutedActions(prev => new Set([...prev, id]));
-  }, []);
+
+    if (id === 'maps' && activeEvent?.type === 'travel') {
+      const origin = encodeURIComponent(activeEvent.origin || 'Current Location');
+      const destination = encodeURIComponent(activeEvent.destination || '');
+      window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`, '_blank');
+    }
+  }, [activeEvent]);
 
   const handleDismissAlert = useCallback((id: string) => {
     setAlerts(prev => prev.filter(a => a.id !== id));

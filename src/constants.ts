@@ -32,17 +32,17 @@ export const DEFAULT_TWIN: DigitalTwin = {
 // ─── Initial Schedule ──────────────────────────────────────────────────────────
 
 export const INITIAL_EVENTS: LifeEvent[] = [
-  { id: '1',  startTime: 420,  label: 'Wake Up',              duration: 30,  type: 'personal', status: 'smooth', icon: '☀️', priority: 95, energyCost: 5,  isLocked: true },
+  { id: '1',  startTime: 420,  label: 'Wake Up',              duration: 30,  type: 'personal', status: 'smooth', icon: '☀️', priority: 95, energyCost: 5 },
   { id: '2',  startTime: 450,  label: 'Morning Run',          duration: 45,  type: 'health',   status: 'smooth', icon: '🏃', priority: 70, energyCost: 40 },
-  { id: '3',  startTime: 510,  label: 'Commute to College',   duration: 35,  type: 'travel',   status: 'watch',  icon: '🚌', priority: 80, energyCost: 20 },
-  { id: '4',  startTime: 555,  label: 'Physics Exam',         duration: 120, type: 'exam',     status: 'smooth', icon: '📝', priority: 100, energyCost: 90, isLocked: true },
+  { id: '3',  startTime: 510,  label: 'Commute to College',   duration: 35,  type: 'travel',   status: 'watch',  icon: '🚌', priority: 80, energyCost: 20, origin: 'Mountain View, CA', destination: 'Stanford University, CA' },
+  { id: '4',  startTime: 555,  label: 'Physics Exam',         duration: 120, type: 'exam',     status: 'smooth', icon: '📝', priority: 100, energyCost: 90 },
   { id: '5',  startTime: 675,  label: 'Lunch + Break',        duration: 45,  type: 'personal', status: 'watch',  icon: '🍱', priority: 40, energyCost: -30 }, // negative = restoring
   { id: '6',  startTime: 720,  label: 'Group Project Meet',   duration: 60,  type: 'meeting',  status: 'watch',  icon: '👥', priority: 80, energyCost: 50 },
   { id: '7',  startTime: 810,  label: 'Gym Session',          duration: 60,  type: 'health',   status: 'watch',  icon: '💪', priority: 60, energyCost: 60 },
   { id: '8',  startTime: 900,  label: 'Coding Lab',           duration: 90,  type: 'class',    status: 'smooth', icon: '💻', priority: 70, energyCost: 50 },
   { id: '9',  startTime: 1020, label: 'Dinner + Wind Down',   duration: 60,  type: 'personal', status: 'smooth', icon: '🍽️', priority: 30, energyCost: -40 },
   { id: '10', startTime: 1110, label: 'Study Block',          duration: 120, type: 'study',    status: 'smooth', icon: '📚', priority: 65, energyCost: 70 },
-  { id: '11', startTime: 1410, label: 'Sleep',                duration: 390, type: 'sleep',    status: 'smooth', icon: '🌙', priority: 90, energyCost: -100, isLocked: true },
+  { id: '11', startTime: 1410, label: 'Sleep',                duration: 390, type: 'sleep',    status: 'smooth', icon: '🌙', priority: 90, energyCost: -100 },
 ];
 
 // ─── Color Maps ────────────────────────────────────────────────────────────────
