@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { AlertTriangle, Zap, Clock, Check, X, Edit2, Plus } from 'lucide-react';
+import { AlertTriangle, Zap, Clock, Check, X, Edit2, Plus, Trash2 } from 'lucide-react';
 import type { LifeEvent, DigitalTwin, PredictedIssue } from '../types';
 import { minutesToTime, calcDayScore } from '../engine';
 import { TYPE_COLORS } from '../constants';
@@ -23,6 +23,7 @@ interface Props {
   onDelayEvent: (id: string) => void;
   onUpdateEvent: (id: string, changes: Partial<LifeEvent>) => void;
   onAddEvent: (newEvent: Omit<LifeEvent, 'id' | 'status'>) => void;
+  onDeleteEvent: (id: string) => void;
 }
 
 // ─── Default Mappings for New Events ──────────────────────────────────────────
@@ -229,6 +230,7 @@ export default function Dashboard({
   onDelayEvent,
   onUpdateEvent,
   onAddEvent,
+  onDeleteEvent,
 }: Props) {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -550,13 +552,24 @@ export default function Dashboard({
                         {isConflict ? 'conflict' : ev.status}
                       </div>
 
-                      {!ev.isLocked && isActive && (
-                        <button
-                          onClick={() => onDelayEvent(ev.id)}
-                          className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 transition-all text-[9px] font-bold"
-                        >
-                          <Clock size={9} /> +5m
-                        </button>
+                      {!ev.isLocked && (
+                        <div className="flex gap-1">
+                          {isActive && (
+                            <button
+                              onClick={() => onDelayEvent(ev.id)}
+                              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 transition-all text-[9px] font-bold"
+                            >
+                              <Clock size={9} /> +5m
+                            </button>
+                          )}
+                          <button
+                            onClick={() => onDeleteEvent(ev.id)}
+                            className="flex items-center gap-1 px-2 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 transition-all"
+                            title="Delete event"
+                          >
+                            <Trash2 size={9} />
+                          </button>
+                        </div>
                       )}
                     </div>
                   </motion.div>

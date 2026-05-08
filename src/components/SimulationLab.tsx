@@ -148,7 +148,7 @@ export default function SimulationLab({ events, twin, onCommit }: Props) {
             <div className="grid grid-cols-3 gap-3">
               {[
                 {
-                  label: 'Health Δ',
+                  label: 'Health Score Δ',
                   value: `${result.healthDelta >= 0 ? '+' : ''}${result.healthDelta}`,
                   sub: `${originalScore} → ${originalScore + result.healthDelta}`,
                   color: result.healthDelta >= 0 ? '#10b981' : '#ef4444',

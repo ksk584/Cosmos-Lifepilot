@@ -114,7 +114,7 @@ export default function BrainPanel({ twin, events, resolutions, isLearning, onAp
                 <p className="text-sm font-bold text-white leading-snug">{res.description}</p>
                 <div className="flex items-center gap-1 mt-1">
                   <TrendingUp size={9} className="text-emerald-400" />
-                  <span className="text-[9px] font-bold text-emerald-400">+{res.healthDelta} health</span>
+                  <span className="text-[9px] font-bold text-emerald-400">+{res.healthDelta} health score</span>
                 </div>
               </div>
               <button

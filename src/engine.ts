@@ -1,4 +1,4 @@
-import type { LifeEvent, DigitalTwin, Status, PredictedIssue, Resolution, SimulationParams, SimulationResult, EnergyState, EnergySuggestion, PassiveAction, AppMode } from './types';
+import type { LifeEvent, DigitalTwin, Status, PredictedIssue, Resolution, SimulationParams, SimulationResult, EnergyState, EnergySuggestion, PassiveAction, AppMode, DeviceContext } from './types';
 
 // ─── Utility ───────────────────────────────────────────────────────────────────
 
@@ -26,7 +26,7 @@ export function calcDayScore(events: LifeEvent[]): number {
 
 // ─── 1. Context Engine ─────────────────────────────────────────────────────────
 
-export function computeContext(currentMins: number, events: LifeEvent[], twin: DigitalTwin) {
+export function computeContext(currentMins: number, events: LifeEvent[], twin: DigitalTwin, deviceContext?: DeviceContext) {
   const activeEvent = events.find(ev => currentMins >= ev.startTime && currentMins < ev.startTime + ev.duration);
   const nextEvent = events.find(ev => ev.startTime > currentMins);
   const timeToNext = nextEvent ? nextEvent.startTime - currentMins : 999;
@@ -69,9 +69,12 @@ export function computeContext(currentMins: number, events: LifeEvent[], twin: D
     intentScore >= 55 ? 'Urgent' :
     intentScore >= 30 ? 'Normal' : 'Relaxed';
 
-  // Simulated signals
-  const batteryLevel = Math.max(10, 100 - Math.floor(currentMins / 14.4));
-  const isCharging = currentMins < 450 || currentMins > 1380;
+  // Device signals
+  const batteryLevel = deviceContext?.batteryLevel ?? Math.max(10, 100 - Math.floor(currentMins / 14.4));
+  const isCharging = deviceContext?.isCharging ?? (currentMins < 450 || currentMins > 1380);
+  const appUsageValue = deviceContext?.appUsageActiveMinutes !== undefined
+    ? `LifePilot (${deviceContext.appUsageActiveMinutes}m active)`
+    : (activeEvent?.type === 'study' ? 'Notion, PDF' : activeEvent?.type === 'travel' ? 'Maps, WhatsApp' : 'General');
 
   const signals = [
     { label: 'Location',    value: location,               icon: '📍', confidence: 85 },
@@ -79,7 +82,7 @@ export function computeContext(currentMins: number, events: LifeEvent[], twin: D
     { label: 'Stress',      value: `${stressLevel}%`,      icon: '🧠', confidence: 72 },
     { label: 'Battery',     value: `${batteryLevel}%`,     icon: isCharging ? '⚡' : '🔋', confidence: 99 },
     { label: 'Time to Next',value: nextEvent ? `${timeToNext}m → ${nextEvent.label}` : 'Free', icon: '⏱', confidence: 95 },
-    { label: 'App Usage',   value: activeEvent?.type === 'study' ? 'Notion, PDF' : activeEvent?.type === 'travel' ? 'Maps, WhatsApp' : 'General', icon: '📱', confidence: 60 },
+    { label: 'App Usage',   value: appUsageValue,          icon: '📱', confidence: deviceContext?.appUsageActiveMinutes !== undefined ? 99 : 60 },
   ];
 
   return { location, activity, stressLevel, intentScore, intentState, signals, batteryLevel, isCharging };
@@ -217,56 +220,11 @@ export function recalculateSchedule(events: LifeEvent[], currentMins: number, tw
 // ─── 6. What-If Simulation ────────────────────────────────────────────────────
 
 export async function runSimulation(events: LifeEvent[], params: SimulationParams, twin: DigitalTwin): Promise<SimulationResult> {
-  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-
   let simEvents = await Promise.all(events
     .filter(ev => !params.skippedEventIds.includes(ev.id))
     .map(async ev => {
       if (ev.type === 'travel') {
         let newDuration = Math.round(ev.duration * params.routeMultiplier);
-
-        if (ev.origin && ev.destination && apiKey) {
-          try {
-            const departureTime = new Date();
-            departureTime.setHours(Math.floor((ev.startTime + params.leaveTimeOffset) / 60));
-            departureTime.setMinutes((ev.startTime + params.leaveTimeOffset) % 60);
-            departureTime.setSeconds(0);
-            
-            if (departureTime.getTime() < Date.now()) {
-                departureTime.setDate(departureTime.getDate() + 1);
-            }
-
-            const response = await fetch('https://routes.googleapis.com/directions/v2:computeRoutes', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'X-Goog-Api-Key': apiKey,
-                'X-Goog-FieldMask': 'routes.duration'
-              },
-              body: JSON.stringify({
-                origin: { address: ev.origin },
-                destination: { address: ev.destination },
-                routingPreference: 'TRAFFIC_AWARE',
-                departureTime: departureTime.toISOString()
-              })
-            });
-
-            const data = await response.json();
-            console.log('Google Maps API Response:', data);
-            
-            if (data.error) {
-              console.error('Google API Error:', data.error);
-              alert(`Google Maps API Error: ${data.error.message}`);
-            }
-            
-            if (data.routes && data.routes[0] && data.routes[0].duration) {
-              const seconds = parseInt(data.routes[0].duration.replace('s', ''));
-              newDuration = Math.round(seconds / 60);
-            }
-          } catch (e) {
-            console.error('Failed to fetch route prediction:', e);
-          }
-        }
         return { ...ev, duration: newDuration, isSimulated: true };
       }
       return { ...ev };
@@ -368,7 +326,6 @@ export function generatePassiveActions(activeEvent: LifeEvent | undefined, mode:
     actions.push({ id: 'msg-exam', label: 'Send Status', description: '"In exam till ' + minutesToTime(activeEvent.startTime + activeEvent.duration) + '"', icon: '💬', type: 'message', trigger: 'Exam active' });
   }
   if (mode === 'TRAVEL') {
-    actions.push({ id: 'maps', label: 'Open Navigation', description: 'Get directions to college', icon: '🗺️', type: 'map', trigger: 'Travel active' });
     actions.push({ id: 'msg-travel', label: 'Send ETA', description: '"On my way, arriving at ' + (activeEvent ? minutesToTime(activeEvent.startTime + activeEvent.duration) : '?') + '"', icon: '💬', type: 'message', trigger: 'Commute active' });
   }
   if (mode === 'SLEEP') {

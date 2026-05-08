@@ -93,7 +93,7 @@ export default function EnergyPanel({ energy, events, currentTimeMins }: Props) 
       {/* Energy Timeline */}
       <div className="glass-panel rounded-3xl p-5">
         <p className="text-[9px] font-mono text-slate-500 uppercase tracking-widest mb-4">Energy Map</p>
-        <div className="relative h-8">
+        <div className="relative h-8 overflow-hidden rounded-md">
           {events.map(ev => {
             const left = ((ev.startTime - dayStart) / dayRange) * 100;
             const width = (ev.duration / dayRange) * 100;

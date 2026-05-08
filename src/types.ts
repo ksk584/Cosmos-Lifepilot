@@ -61,6 +61,12 @@ export interface DigitalTwin {
 
 // ─── Context Engine ────────────────────────────────────────────────────────────
 
+export interface DeviceContext {
+  batteryLevel?: number;
+  isCharging?: boolean;
+  appUsageActiveMinutes?: number;
+}
+
 export interface ContextSignal {
   label: string;
   value: string;

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { Activity, Zap, Dna, Calendar, Brain, Shield, Battery, FlaskConical } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import type { DigitalTwin, LifeEvent, AppAlert, AppMode, Resolution, PassiveAction } from './types';
+import type { DigitalTwin, LifeEvent, AppAlert, AppMode, Resolution, PassiveAction, DeviceContext } from './types';
 import { DEFAULT_TWIN, INITIAL_EVENTS, MODE_META } from './constants';
 import {
   computeContext, calculateRisk, runDailyPreMortem, generateResolutions,
@@ -87,6 +87,7 @@ export default function App() {
   const [showPreMortem, setShowPreMortem] = useState(true);
   const [alerts, setAlerts] = useState<AppAlert[]>([]);
   const [executedActions, setExecutedActions] = useState<Set<string>>(new Set());
+  const [deviceContext, setDeviceContext] = useState<DeviceContext>({ appUsageActiveMinutes: 0 });
 
   const currentTimeMins = currentTime.getHours() * 60 + currentTime.getMinutes();
 
@@ -99,8 +100,8 @@ export default function App() {
   const mode = useMemo(() => detectMode(activeEvent, currentTimeMins), [activeEvent, currentTimeMins]);
 
   const context = useMemo(
-    () => computeContext(currentTimeMins, events, twin),
-    [currentTimeMins, events, twin]
+    () => computeContext(currentTimeMins, events, twin, deviceContext),
+    [currentTimeMins, events, twin, deviceContext]
   );
 
   const predictedIssues = useMemo(() => runDailyPreMortem(events, twin), [events, twin]);
@@ -141,6 +142,85 @@ export default function App() {
     return () => clearInterval(t);
   }, []);
 
+  // ── Device Context (Battery & App Usage) ──
+  useEffect(() => {
+    // Battery tracking
+    let batteryInterval: ReturnType<typeof setInterval>;
+    let usingOsBattery = false;
+
+    const pollBattery = async () => {
+      try {
+        const res = await fetch('/api/battery');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.level !== null) {
+            setDeviceContext(prev => ({
+              ...prev,
+              batteryLevel: data.level,
+              isCharging: data.isCharging
+            }));
+            if (!usingOsBattery) {
+              usingOsBattery = true;
+              batteryInterval = setInterval(pollBattery, 10000);
+            }
+            return true;
+          }
+        }
+      } catch (e) {
+        console.error('OS Battery API error:', e);
+      }
+      return false;
+    };
+
+    pollBattery().then(success => {
+      if (!success && 'getBattery' in navigator) {
+        (navigator as any).getBattery().then((battery: any) => {
+          const updateBattery = () => {
+            setDeviceContext(prev => ({
+              ...prev,
+              batteryLevel: Math.round(battery.level * 100),
+              isCharging: battery.charging
+            }));
+          };
+          updateBattery();
+          battery.addEventListener('levelchange', updateBattery);
+          battery.addEventListener('chargingchange', updateBattery);
+        }).catch((e: any) => console.error('Web Battery API error:', e));
+      }
+    });
+
+    // App usage tracking
+    let activeTimeMs = 0;
+    let lastTick = Date.now();
+    let isVisible = !document.hidden;
+
+    const handleVisibilityChange = () => {
+      isVisible = !document.hidden;
+      if (isVisible) {
+        lastTick = Date.now();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    const interval = setInterval(() => {
+      if (isVisible) {
+        const now = Date.now();
+        activeTimeMs += (now - lastTick);
+        lastTick = now;
+        setDeviceContext(prev => ({
+          ...prev,
+          appUsageActiveMinutes: Math.floor(activeTimeMs / 60000)
+        }));
+      }
+    }, 5000);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      clearInterval(interval);
+      if (batteryInterval) clearInterval(batteryInterval);
+    };
+  }, []);
+
   // ── Recalculate schedule statuses every minute ──
   useEffect(() => {
     setEvents(prev => recalculateSchedule(prev, currentTimeMins, twin));
@@ -149,13 +229,7 @@ export default function App() {
   // ── Actions ──
   const handleExecuteAction = useCallback((id: string) => {
     setExecutedActions(prev => new Set([...prev, id]));
-
-    if (id === 'maps' && activeEvent?.type === 'travel') {
-      const origin = encodeURIComponent(activeEvent.origin || 'Current Location');
-      const destination = encodeURIComponent(activeEvent.destination || '');
-      window.open(`https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}`, '_blank');
-    }
-  }, [activeEvent]);
+  }, []);
 
   // ── Autonomous Agent Loop (every 5s) ──
   useEffect(() => {
@@ -264,6 +338,13 @@ export default function App() {
     setEvents(prev => {
       const added: LifeEvent = { ...newEvent, id: Date.now().toString(), status: 'smooth' };
       const updated = [...prev, added].sort((a, b) => a.startTime - b.startTime);
+      return recalculateSchedule(updated, currentTimeMins, twin);
+    });
+  }, [currentTimeMins, twin]);
+
+  const handleDeleteEvent = useCallback((id: string) => {
+    setEvents(prev => {
+      const updated = prev.filter(ev => ev.id !== id);
       return recalculateSchedule(updated, currentTimeMins, twin);
     });
   }, [currentTimeMins, twin]);
@@ -391,6 +472,7 @@ export default function App() {
                 onDelayEvent={handleDelayEvent}
                 onUpdateEvent={handleUpdateEvent}
                 onAddEvent={handleAddEvent}
+                onDeleteEvent={handleDeleteEvent}
               />
             )}
             {activeTab === 'context' && (
