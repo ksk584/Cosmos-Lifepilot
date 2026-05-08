@@ -32,7 +32,7 @@ LifePilot is an autonomous, context-aware scheduling and energy-tracking assista
 ## Complete Feature List
 
 ### 🧠 1. Context & Intent Detection (Core Brain)
-Your app continuously understands your situation.
+This app continuously understands your situation.
 - **Detects:** Location (home, college, commute), time of day, calendar events, app usage patterns, activity, and phone state (battery, charging).
 - **Advanced Signals:** Typing speed (to infer stress level) and app combinations (e.g., Maps + WhatsApp indicates traveling intent).
 - **Outputs:** An Intent Score (0–100) and states like Relaxed, Normal, Urgent, or Critical.
